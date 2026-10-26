@@ -1,3 +1,4 @@
+```
 #include "raylib.h"
 #include <stdio.h>
 
@@ -136,6 +137,7 @@ int main(void) {
     }
 
     CloseWindow();
+```
 
     return 0;
 }
