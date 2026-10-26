@@ -76,3 +76,4 @@ int main(void) {
     sqlite3_close(db);
     return 0;
 }
+<img width="1110" height="628" alt="{355CE351-122F-4672-8B77-CEEAFBCB4797}" src="https://github.com/user-attachments/assets/42555f36-f11c-4ce9-9eee-6ea0561731a3" />
