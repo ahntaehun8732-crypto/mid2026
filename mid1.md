@@ -4,140 +4,105 @@
 
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 600
+#define ROWS 4
+#define COLS 8
 
-#define NUM_BLOCK_ROWS 6
-#define NUM_BLOCK_COLS 10
-#define TOTAL_BLOCKS (NUM_BLOCK_ROWS * NUM_BLOCK_COLS)
-
-typedef struct Block {
+typedef struct {
     Rectangle rect;
     bool active;
     Color color;
 } Block;
 
-typedef struct Paddle {
-    Rectangle rect;
-    float speed;
-} Paddle;
-
-typedef struct Ball {
-    Vector2 position;
-    Vector2 speed;
-    float radius;
-    bool active;
-} Ball;
-
 int main(void) {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Rainbow Block Breaker");
     SetTargetFPS(60);
 
-    Paddle paddle = {
-        .rect = { SCREEN_WIDTH / 2.0f - 60, SCREEN_HEIGHT - 30, 120, 15 },
-        .speed = 8.0f
-    };
+    Rectangle paddle = { SCREEN_WIDTH / 2.0f - 50, SCREEN_HEIGHT - 40, 100, 15 };
+    Vector2 ballPos = { SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f };
+    Vector2 ballSpeed = { 5.0f, -5.0f };
+    float ballRadius = 8.0f;
 
-    Ball ball = {
-        .position = { SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f },
-        .speed = { 5.0f, -5.0f },
-        .radius = 8.0f,
-        .active = true
-    };
+    Block blocks[ROWS][COLS];
+    Color colors[ROWS] = { RED, ORANGE, YELLOW, GREEN };
+    float bWidth = SCREEN_WIDTH / (float)COLS;
+    float bHeight = 25.0f;
 
-    Color rainbowColors[NUM_BLOCK_ROWS] = {
-        RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE
-    };
-
-    Block blocks[TOTAL_BLOCKS];
-    float blockWidth = (SCREEN_WIDTH - 40) / NUM_BLOCK_COLS;
-    float blockHeight = 20.0f;
-
-    for (int i = 0; i < NUM_BLOCK_ROWS; i++) {
-        for (int j = 0; j < NUM_BLOCK_COLS; j++) {
-            int index = i * NUM_BLOCK_COLS + j;
-            blocks[index].rect = (Rectangle){
-                20 + j * blockWidth,
-                50 + i * (blockHeight + 5),
-                blockWidth - 5,
-                blockHeight
-            };
-            blocks[index].active = true;
-            blocks[index].color = rainbowColors[i];
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLS; j++) {
+            blocks[i][j] = (Block){ { j * bWidth + 5, i * (bHeight + 5) + 40, bWidth - 10, bHeight }, true, colors[i] };
         }
     }
 
     int score = 0;
-    bool gameOver = false;
-    bool gameWon = false;
+    int lives = 5; // 5회 실패(목숨) 시스템
 
     while (!WindowShouldClose()) {
-        if (!gameOver && !gameWon) {
-            if (IsKeyDown(KEY_LEFT) && paddle.rect.x > 0)
-                paddle.rect.x -= paddle.speed;
-            if (IsKeyDown(KEY_RIGHT) && (paddle.rect.x + paddle.rect.width) < SCREEN_WIDTH)
-                paddle.rect.x += paddle.speed;
+        // Paddle Movement
+        if (IsKeyDown(KEY_LEFT) && paddle.x > 0) paddle.x -= 7.0f;
+        if (IsKeyDown(KEY_RIGHT) && paddle.x + paddle.width < SCREEN_WIDTH) paddle.x += 7.0f;
 
-            ball.position.x += ball.speed.x;
-            ball.position.y += ball.speed.y;
+        // Ball Movement
+        ballPos.x += ballSpeed.x;
+        ballPos.y += ballSpeed.y;
 
-            if (ball.position.x - ball.radius <= 0 || ball.position.x + ball.radius >= SCREEN_WIDTH)
-                ball.speed.x *= -1;
-            if (ball.position.y - ball.radius <= 0)
-                ball.speed.y *= -1;
+        // Wall Collision (Left, Right, Top)
+        if (ballPos.x - ballRadius <= 0 || ballPos.x + ballRadius >= SCREEN_WIDTH) ballSpeed.x *= -1;
+        if (ballPos.y - ballRadius <= 0) ballSpeed.y *= -1;
 
-            if (ball.position.y + ball.radius >= SCREEN_HEIGHT) {
-                gameOver = true;
-            }
-
-            if (CheckCollisionCircleRec(ball.position, ball.radius, paddle.rect)) {
-                if (ball.speed.y > 0) {
-                    ball.speed.y *= -1;
-                    ball.speed.x = (ball.position.x - (paddle.rect.x + paddle.rect.width / 2.0f)) / 10.0f;
+        // Bottom Collision (Fail / Lose Life)
+        if (ballPos.y + ballRadius >= SCREEN_HEIGHT) {
+            lives--;
+            if (lives <= 0) {
+                // Reset Game after 5 fails
+                lives = 5;
+                score = 0;
+                for (int i = 0; i < ROWS; i++) {
+                    for (int j = 0; j < COLS; j++) blocks[i][j].active = true;
                 }
             }
-
-            int activeBlocks = 0;
-            for (int i = 0; i < TOTAL_BLOCKS; i++) {
-                if (blocks[i].active) {
-                    activeBlocks++;
-                    if (CheckCollisionCircleRec(ball.position, ball.radius, blocks[i].rect)) {
-                        blocks[i].active = false;
-                        ball.speed.y *= -1;
-                        score += 10;
-                        break;
-                    }
-                }
-            }
-
-            if (activeBlocks == 0) gameWon = true;
+            ballPos = (Vector2){ SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f };
+            ballSpeed = (Vector2){ 5.0f, -5.0f };
         }
 
+        // Paddle Collision
+        if (CheckCollisionCircleRec(ballPos, ballRadius, paddle)) {
+            ballSpeed.y *= -1;
+            ballSpeed.x = (ballPos.x - (paddle.x + paddle.width / 2.0f)) / 10.0f;
+        }
+
+        // Block Collision
+        for (int i = 0; i < ROWS; i++) {
+            for (int j = 0; j < COLS; j++) {
+                if (blocks[i][j].active && CheckCollisionCircleRec(ballPos, ballRadius, blocks[i][j].rect)) {
+                    blocks[i][j].active = false;
+                    ballSpeed.y *= -1;
+                    score += 10;
+                }
+            }
+        }
+
+        // Render
         BeginDrawing();
         ClearBackground(BLACK);
 
-        if (!gameOver && !gameWon) {
-            DrawRectangleRec(paddle.rect, LIGHTGRAY);
-            DrawCircleV(ball.position, ball.radius, WHITE);
+        DrawRectangleRec(paddle, WHITE);
+        DrawCircleV(ballPos, ballRadius, YELLOW);
 
-            for (int i = 0; i < TOTAL_BLOCKS; i++) {
-                if (blocks[i].active) {
-                    DrawRectangleRec(blocks[i].rect, blocks[i].color);
+        for (int i = 0; i < ROWS; i++) {
+            for (int j = 0; j < COLS; j++) {
+                if (blocks[i][j].active) {
+                    DrawRectangleRec(blocks[i][j].rect, blocks[i][j].color);
                 }
             }
-
-            DrawText(TextFormat("SCORE: %d", score), 20, 10, 20, RAYWHITE);
-        } else if (gameOver) {
-            DrawText("GAME OVER", SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 - 20, 40, RED);
-            DrawText("Press ESC to Exit", SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 + 30, 20, GRAY);
-        } else if (gameWon) {
-            DrawText("YOU WIN!", SCREEN_WIDTH / 2 - 80, SCREEN_HEIGHT / 2 - 20, 40, GREEN);
-            DrawText(TextFormat("FINAL SCORE: %d", score), SCREEN_WIDTH / 2 - 90, SCREEN_HEIGHT / 2 + 30, 20, WHITE);
         }
+
+        DrawText(TextFormat("Score: %d", score), 20, 10, 20, WHITE);
+        DrawText(TextFormat("Lives: %d", lives), SCREEN_WIDTH - 100, 10, 20, RED);
 
         EndDrawing();
     }
 
     CloseWindow();
-```
-
     return 0;
 }
+```
