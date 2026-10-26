@@ -106,3 +106,4 @@ int main(void) {
     return 0;
 }
 ```
+<img width="800" height="614" alt="{156AFD0F-2D20-45C7-BBEE-D2E41CEA01AA}" src="https://github.com/user-attachments/assets/ceb416ba-8662-4566-aa1f-1cf529d5bbb8" />
